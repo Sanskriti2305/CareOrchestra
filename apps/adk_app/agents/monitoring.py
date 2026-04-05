@@ -10,7 +10,7 @@ class MonitoringAgent:
         # 2. Logic: Should this go to an emergency alert or just a daily log?
         
         # Example logic:
-        if "chest pain" in summary.lower() or "can't breathe" in summary.lower():
+        if "chest pain" in summary.lower() or "can't breathe" in summary.lower() :
             return "URGENT: Escalating to emergency nursing team immediately."
         
         return "Everything looks stable based on your report. I've logged this for your doctor to review."

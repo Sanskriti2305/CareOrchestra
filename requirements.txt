@@ -43,3 +43,8 @@ ipython>=8.12.0
 ipdb>=0.13.0
 requests>=2.31.0
 google-generativeai
+python-dotenv
+google-cloud-logging
+google-cloud-bigquery
+pydantic
+sqlalchemy

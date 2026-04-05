@@ -6,21 +6,18 @@ from pathlib import Path
 import google.cloud.logging
 from dotenv import load_dotenv
 
-from google.adk import Agent
-from google.adk.tools.tool_context import ToolContext
-
 # --- Setup Logging and Environment ---
+try:
+    cloud_logging_client = google.cloud.logging.Client()
+    cloud_logging_client.setup_logging()
+except Exception:
+    logging.basicConfig(level=logging.INFO)
+    logging.info("Cloud logging not available, using standard logging.")
 
-cloud_logging_client = google.cloud.logging.Client()
-cloud_logging_client.setup_logging()
-
-load_dotenv(dotenv_path=Path(__file__).parent / ".env")
-
-model_name = os.getenv("MODEL")
+load_dotenv()
 
 # ---------------------------------------------------------------------------
-# Dummy Patient Database
-# In production, replace with a real DB query (Cloud SQL, Firestore, etc.)
+# Dummy Patient Database (Kept exactly as per your details)
 # ---------------------------------------------------------------------------
 
 DUMMY_PATIENT_DB = {
@@ -51,63 +48,39 @@ DEFAULT_PATIENT = {
     "medication": "prescribed medication",
 }
 
-
 # ---------------------------------------------------------------------------
-# Tools
+# Tool Functions for Gemini Coordinator
 # ---------------------------------------------------------------------------
 
-def fetch_patient_from_db(tool_context: ToolContext) -> dict:
+def fetch_patient_from_db(session_id: str = "session_001") -> dict:
     """
-    Simulates a DB lookup for the current session's patient.
-
-    Reads 'session_id' from state (defaults to 'session_001' for dev/test).
-    Writes patient_id, patient_name, and medication into state for use
-    by save_medication_response in the same agent turn.
-
-    In production: replace dict lookup with Cloud SQL / Firestore query.
+    Simulates a database lookup for the current session's patient.
+    Always call this first to get the patient's name and medication details.
     """
-    session_id = tool_context.state.get("session_id", "session_001")
-    patient    = DUMMY_PATIENT_DB.get(session_id, DEFAULT_PATIENT)
-
-    tool_context.state["patient_id"]   = patient["patient_id"]
-    tool_context.state["patient_name"] = patient["name"]
-    tool_context.state["medication"]   = patient["medication"]
-
+    patient = DUMMY_PATIENT_DB.get(session_id, DEFAULT_PATIENT)
     logging.info(f"[DB Lookup] Resolved patient: {json.dumps(patient)}")
-
-    return {
-        "status":       "success",
-        "patient_id":   patient["patient_id"],
-        "patient_name": patient["name"],
-        "age":          patient["age"],
-        "medication":   patient["medication"],
-    }
+    return patient
 
 
 def save_medication_response(
-    tool_context: ToolContext,
+    patient_id: str,
+    patient_name: str,
+    medication: str,
     medication_taken: bool,
     raw_response: str,
 ) -> dict:
     """
-    Builds a structured medication check-in record and persists it to state.
-
-    Patient metadata (patient_id, name, medication) is read from state,
-    written there earlier in the same session by fetch_patient_from_db.
-
+    Builds and saves a structured medication check-in record.
+    Call this after the patient confirms whether they took their medication.
+    
     Args:
-        tool_context:     ADK ToolContext.
+        patient_id: The ID of the patient.
+        patient_name: The name of the patient.
+        medication: The medication name being tracked.
         medication_taken: True if patient confirmed taking medication.
-        raw_response:     The patient's verbatim reply.
-
-    Returns:
-        dict with 'status' and the fully structured 'medication_record'.
+        raw_response: The patient's verbatim reply text.
     """
     now = datetime.datetime.utcnow()
-
-    patient_id   = tool_context.state.get("patient_id",   "UNKNOWN")
-    patient_name = tool_context.state.get("patient_name", "UNKNOWN")
-    medication   = tool_context.state.get("medication",   "UNKNOWN")
 
     medication_record = {
         "patient_id":          patient_id,
@@ -126,11 +99,7 @@ def save_medication_response(
         ),
     }
 
-    log: list = tool_context.state.get("medication_log", [])
-    log.append(medication_record)
-    tool_context.state["medication_log"]    = log
-    tool_context.state["medication_record"] = medication_record
-
+    # In a real app, this would be an INSERT INTO BigQuery or Postgres
     logging.info(f"[Medication Record Saved] {json.dumps(medication_record)}")
 
     return {
@@ -139,54 +108,14 @@ def save_medication_response(
     }
 
 
+class MedicationAgent:
+    """
+    Main class-based wrapper for the Medication Agent logic.
+    """
+    def __init__(self):
+        self.agent_name = "MedicationAgent"
 
-
-root_agent = Agent(
-    name="medication_root_agent",
-    model=model_name,
-    description="Medication reminder agent that greets the patient, asks about medication, logs the response, and gives feedback.",
-    instruction="""
-    You are a warm and caring medication reminder assistant.
-
-    ── TURN 1 (first message from the patient) ──────────────────────────────
-    When the conversation starts:
-
-    1. Call 'fetch_patient_from_db' to get the patient's details.
-    2. Greet the patient warmly by name. Example:
-       "Hello Rajesh! 👋 I'm your medication reminder assistant. I'm here
-        to help you stay on track with your Metformin 500mg."
-    3. Ask exactly ONE question and stop:
-       "Have you taken your [medication name] today?"
-
-    ── TURN 2 (patient replies yes or no) ───────────────────────────────────
-    When the patient answers:
-
-    1. Read their reply from the conversation. Classify it:
-       YES → yes, yeah, yup, yep, done, took it, had it, sure, already, etc.
-       NO  → no, nope, not yet, forgot, haven't, didn't, skip, etc.
-
-    2. Call 'save_medication_response' with:
-           medication_taken → True for YES, False for NO
-           raw_response     → the patient's exact reply word-for-word
-
-    3. Reply to the patient:
-       If YES → "Great! 🎉 We've made an entry for today. Keep it up —
-                 consistency is the key to good health! 💊✅"
-       If NO  → "No worries! We've noted today's entry. Please make sure to
-                 take your medicines on time tomorrow. Your health matters! 💊"
-
-    4. Output the medication_record from the tool as a formatted JSON block:
-       ```json
-       { <medication_record here> }
-       ```
-
-    ── RULES ────────────────────────────────────────────────────────────────
-    - Never ask for the patient's ID — the system resolves it automatically.
-    - Never answer the medication question on the patient's behalf.
-    - Never call save_medication_response on Turn 1.
-    - After Turn 2 is complete, the conversation is done. Do not prompt
-      for more input or ask follow-up questions.
-    - Always be warm, non-judgmental, and encouraging.
-    """,
-    tools=[fetch_patient_from_db, save_medication_response],
-)
+    async def check_medication_adherence(self, patient_id: str) -> dict:
+        """Helper method for internal app logic."""
+        # For now, returns a simple status
+        return {"status": "active", "patient_id": patient_id}

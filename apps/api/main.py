@@ -1,11 +1,12 @@
 # api/main.py
 from fastapi import FastAPI
 import sys
-from apps.adk_app.agents.coordinator import CoordinatorAgent
+from apps.adk_app.app import CareOrchestraApp
+# from apps.adk_app.agents.coordinator import CoordinatorAgent
 
 app = FastAPI()
 
-orchestra = CoordinatorAgent()
+orchestra = CareOrchestraApp()
 
 @app.get("/main-adk")
 async def handle_message(message: str, patient_id: str):
@@ -16,7 +17,7 @@ async def handle_message(message: str, patient_id: str):
         }
         
         # 4. Run the logic
-        result = await orchestra.coordinate(payload)
+        result = await orchestra.process_event(payload)
         
         return {"status": "success", "response": result}
         
@@ -26,3 +27,4 @@ async def handle_message(message: str, patient_id: str):
         print(f"CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
         return {"status": "error", "message": str(e)}
+    

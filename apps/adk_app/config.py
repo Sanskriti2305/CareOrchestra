@@ -3,6 +3,9 @@
 import os
 from dataclasses import dataclass
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
@@ -28,21 +31,15 @@ class CalendarConfig:
 
 
 @dataclass
-class AppConfig:
-    """Main application configuration."""
-    debug: bool = os.getenv("DEBUG", "false").lower() == "true"
+class Config:
+    """Central configuration for CareOrchestra."""
+    google_api_key: str = os.getenv("GOOGLE_API_KEY")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     
-    # Agent configuration
-    use_mock_data: bool = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
-    mock_data_path: str = os.getenv("MOCK_DATA_PATH", "data/mock_payloads")
-    
-    # Service configuration
-    google: GoogleConfig = GoogleConfig()
-    gmail: GmailConfig = GmailConfig()
-    calendar: CalendarConfig = CalendarConfig()
+    # Add other keys as you need them
+    postgres_url: str = os.getenv("DATABASE_URL")
+    bigquery_project: str = os.getenv("GCP_PROJECT_ID")
 
-
-def get_config() -> AppConfig:
-    """Get application configuration."""
-    return AppConfig()
+def get_config() -> Config:
+    """Helper function to return the config object."""
+    return Config()
