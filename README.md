@@ -69,7 +69,7 @@ See [Architecture Documentation](docs/architecture.md) for details.
 - ✅ Gmail (alert delivery)
 - ✅ Google Calendar (appointment scheduling)
 - 🔲 MCP Toolbox for BigQuery (future)
-- 🔲 FastAPI wrapper (future)
+- 🔲 FastAPI wrapper 
 - 🔲 Streamlit frontend (future)
 - 🔲 Advanced ML models for risk prediction (future)
 
@@ -150,6 +150,14 @@ CareOrchestra/
 | **Reporting** | Clinical summaries | What's important for providers? |
 
 See [Agent Responsibilities](docs/agent_responsibilities.md) for detailed info.
+
+## How to Run
+activate the virtual env
+`source care-env/bin/activate`
+
+Run fast api entry point
+`PYTHONPATH=. uvicorn apps.api.main:app --reload`
+
 
 ## Configuration
 

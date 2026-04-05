@@ -3,41 +3,14 @@
 
 class MonitoringAgent:
     """
-    Monitors patient-related events:
-    - Scheduled vitals checks
-    - Medication reminders
-    - Appointment follow-ups
-    - User input events
-    - Triggers downstream analysis when events occur
+    Collects, validates, and routes the summarized data from the Coordinator.
     """
-    
-    def __init__(self):
-        """Initialize monitoring agent."""
-        pass
-    
-    async def monitor(self) -> None:
-        """
-        Monitor for incoming patient events.
+    def process_summary(self, patient_id: str, summary: str):
+        # 1. Validate the summary (Is it clinical? Is it high risk?)
+        # 2. Logic: Should this go to an emergency alert or just a daily log?
         
-        Watches for:
-        - Scheduled events from scheduler
-        - Manual vitals entry
-        - Medication log events
-        - Appointment reminders
-        """
-        # TODO: Implement event monitoring loop
-        # TODO: Check for triggered events
-        # TODO: Route to coordinator agent
-        pass
-    
-    async def process_event(self, event: dict) -> None:
-        """
-        Process a detected event.
+        # Example logic:
+        if "chest pain" in summary.lower() or "can't breathe" in summary.lower():
+            return "URGENT: Escalating to emergency nursing team immediately."
         
-        Args:
-            event: Patient event data
-        """
-        # TODO: Validate event
-        # TODO: Enrich with patient context
-        # TODO: Pass to coordinator
-        pass
+        return "Everything looks stable based on your report. I've logged this for your doctor to review."
