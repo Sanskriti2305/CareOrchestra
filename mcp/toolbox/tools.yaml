@@ -1,0 +1,55 @@
+sources:
+  care_bq:
+    kind: bigquery
+    project: cohort1-hackathon-492410
+
+tools:
+  get_patients:
+    kind: bigquery-sql
+    source: care_bq
+    statement: |
+      SELECT patient_id, first_name, last_name, risk_level, status
+      FROM `cohort1-hackathon-492410.careorchestra.patients`
+      LIMIT 20
+    description: |
+      Fetch patient basic details.
+
+  get_recent_vitals:
+    kind: bigquery-sql
+    source: care_bq
+    statement: |
+      SELECT patient_id, vital_type, value, unit, recorded_at, abnormal_flag
+      FROM `cohort1-hackathon-492410.careorchestra.vitals`
+      ORDER BY recorded_at DESC
+      LIMIT 50
+    description: |
+      Fetch recent vitals.
+
+  get_medications:
+    kind: bigquery-sql
+    source: care_bq
+    statement: |
+      SELECT patient_id, medicine_name, dosage, frequency, adherence_status
+      FROM `cohort1-hackathon-492410.careorchestra.medications`
+      LIMIT 50
+    description: |
+      Fetch medication records.
+
+  get_open_alerts:
+    kind: bigquery-sql
+    source: care_bq
+    statement: |
+      SELECT alert_id, patient_id, alert_type, severity, alert_message, status, created_at
+      FROM `cohort1-hackathon-492410.careorchestra.alerts`
+      WHERE status = 'open'
+      ORDER BY created_at DESC
+      LIMIT 50
+    description: |
+      Fetch open alerts.
+
+toolsets:
+  care_toolset:
+    - get_patients
+    - get_recent_vitals
+    - get_medications
+    - get_open_alerts
