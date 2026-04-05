@@ -18,7 +18,9 @@ jobs:
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          # This uses the 'Keyless' bridge we just built
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: 'Set up Cloud SDK'
         uses: 'google-github-actions/setup-gcloud@v2'
@@ -37,6 +39,7 @@ jobs:
       - name: Deploy to Cloud Run
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GEMINI_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           gcloud run deploy care-orchestra \
             --image us-central1-docker.pkg.dev/$PROJECT_ID/care-orchestra/care-orchestra \
@@ -44,8 +47,5 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --memory 1Gi \
-            --cpu 1 \
-            --max-instances 10 \
-            --set-env-vars GCP_PROJECT_ID=$PROJECT_ID,GMAIL_USE_MOCK=true,USE_MOCK_DATA=true
+            --set-env-vars GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_API_KEY=$GEMINI_KEY,GMAIL_USE_MOCK=true,USE_MOCK_DATA=true
 
