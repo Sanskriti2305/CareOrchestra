@@ -20,6 +20,9 @@ echo "Location: $LOCATION"
 echo "Seed dir: $SEED_DIR"
 echo "------------------------------------------------------------"
 
+# ------------------------------------------------------------
+# [1/4] Create dataset
+# ------------------------------------------------------------
 echo "[1/4] Checking dataset..."
 if bq show --dataset "${PROJECT_ID}:${DATASET_NAME}" >/dev/null 2>&1; then
   echo "Dataset already exists."
@@ -28,33 +31,22 @@ else
   bq mk --dataset --location="$LOCATION" "${PROJECT_ID}:${DATASET_NAME}"
 fi
 
+# ------------------------------------------------------------
+# [2/4] Create tables
+# ------------------------------------------------------------
 echo "[2/4] Creating tables..."
 
+# Patients (ONLY fields present in CSV)
 bq query --use_legacy_sql=false "
 CREATE OR REPLACE TABLE \`${PROJECT_ID}.${DATASET_NAME}.patients\` (
     patient_id STRING NOT NULL,
     first_name STRING NOT NULL,
     last_name STRING NOT NULL,
     date_of_birth DATE,
-    gender STRING,
     phone STRING,
     email STRING,
-    address_line1 STRING,
-    address_line2 STRING,
-    city STRING,
-    state STRING,
-    zip_code STRING,
-    emergency_contact_name STRING,
-    emergency_contact_phone STRING,
-    blood_group STRING,
-    primary_language STRING,
     chronic_conditions STRING,
-    allergies STRING,
-    medication_summary STRING,
-    risk_level STRING,
-    status STRING,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
+    created_at TIMESTAMP
 );"
 
 bq query --use_legacy_sql=false "
@@ -146,35 +138,57 @@ CREATE OR REPLACE TABLE \`${PROJECT_ID}.${DATASET_NAME}.family_members\` (
     updated_at TIMESTAMP
 );"
 
-echo "[3/4] Loading seed CSVs if present..."
+# ------------------------------------------------------------
+# [3/4] Load seed data
+# ------------------------------------------------------------
+echo "[3/4] Loading seed CSVs..."
 
+# 🔥 Explicit patients load (NO AUTODETECT EVER)
+echo "Loading patients..."
+
+if [ -f "${SEED_DIR}/patients.csv" ]; then
+  bq load \
+    --replace \
+    --source_format=CSV \
+    --skip_leading_rows=1 \
+    --schema=patient_id:STRING,first_name:STRING,last_name:STRING,date_of_birth:DATE,phone:STRING,email:STRING,chronic_conditions:STRING,created_at:TIMESTAMP \
+    "${PROJECT_ID}:${DATASET_NAME}.patients" \
+    "${SEED_DIR}/patients.csv"
+else
+  echo "Skipping patients (file not found)"
+fi
+
+# Generic loader for other tables
 load_csv() {
   local table_name="$1"
   local file_path="$2"
 
   if [ -f "$file_path" ]; then
-    echo "Loading $file_path -> ${PROJECT_ID}:${DATASET_NAME}.${table_name}"
+    echo "Loading $table_name..."
     bq load \
+      --replace \
       --source_format=CSV \
       --skip_leading_rows=1 \
       --autodetect \
       "${PROJECT_ID}:${DATASET_NAME}.${table_name}" \
       "$file_path"
   else
-    echo "Skipping $table_name. File not found: $file_path"
+    echo "Skipping $table_name (file not found)"
   fi
 }
 
-load_csv "patients" "${SEED_DIR}/patients.csv"
 load_csv "vitals" "${SEED_DIR}/vitals.csv"
 load_csv "medications" "${SEED_DIR}/medications.csv"
 load_csv "alerts" "${SEED_DIR}/alerts.csv"
 load_csv "appointments" "${SEED_DIR}/appointments.csv"
 load_csv "medication_logs" "${SEED_DIR}/medication_logs.csv"
 
+# ------------------------------------------------------------
+# [4/4] Verify
+# ------------------------------------------------------------
 echo "[4/4] Final tables:"
 bq ls "${PROJECT_ID}:${DATASET_NAME}"
 
 echo "------------------------------------------------------------"
-echo "BigQuery setup complete."
+echo "BigQuery setup complete ✅"
 echo "------------------------------------------------------------"
