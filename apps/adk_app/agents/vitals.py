@@ -306,7 +306,7 @@ class VitalsAgent:
                 "Please assess this patient's vital signs and identify any concerning patterns."
             )
 
-            response = self.client.models.generate_content(
+            response = await self.client.aio.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=[
                     types.Content(
