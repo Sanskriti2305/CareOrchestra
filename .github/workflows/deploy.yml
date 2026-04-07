@@ -5,7 +5,31 @@ on:
     branches: [ main ]
 
 jobs:
+  bq-setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+      
+      - name: Setup BigQuery Dataset + Seed Data
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          bash infra/scripts/setup_bigquery.sh $PROJECT_ID
   deploy:
+    needs: bq-setup
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
@@ -47,5 +71,7 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_API_KEY=$GEMINI_KEY,GMAIL_USE_MOCK=true,USE_MOCK_DATA=true
+            --set-env-vars GCP_PROJECT_ID=$PROJECT_ID,GOOGLE_API_KEY=$GEMINI_KEY,GMAIL_USE_MOCK=true,USE_MOCK_DATA=false
+          
+
 

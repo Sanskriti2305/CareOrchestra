@@ -3,24 +3,72 @@ import logging
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from .monitoring import MonitoringAgent
-
+from ..tools.bigquery_tools.client import BigQueryClient
+from .monitoring_agent import MonitoringAgent
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-def get_patient_profile(patient_id: str) -> dict:
-    """
-    Retrieves the patient's condition, name, and care plan.
-    Always call this first to greet the patient personally.
-    """
-    return {
-        "name": "John Doe",
-        "condition": "Hypertension",
-        "last_visit": "2024-01-10",
-        "target_bp": "130/80"
-    }
+# Initialize once (global is fine in Cloud Run)
+bq_client = BigQueryClient(
+    project_id=os.getenv("GCP_PROJECT_ID"),
+    dataset_id="careorchestra"
+)
 
+
+async def get_patient_profile(patient_id: str) -> dict:
+    """
+    Fetch patient profile from BigQuery
+    """
+    try:
+        logger.info(f"Fetching patient profile for patient_id={patient_id}")
+
+        query = f"""
+        SELECT 
+            first_name,
+            last_name,
+            chronic_conditions,
+            updated_at
+        FROM `{bq_client.project_id}.{bq_client.dataset_id}.patients`
+        WHERE patient_id = @patient_id
+        LIMIT 1
+        """
+
+        results = await bq_client.query(
+            query,
+            {"patient_id": patient_id}
+        )
+
+        if not results:
+            logger.warning(f"No patient found for patient_id={patient_id}")
+            return {
+                "name": "Patient",
+                "condition": "Unknown",
+                "last_visit": "N/A",
+                "target_bp": "N/A"
+            }
+
+        patient = results[0]
+
+        full_name = f"{patient.get('first_name', '')} {patient.get('last_name', '')}".strip()
+
+        logger.info(f"Patient found: {full_name}")
+
+        return {
+            "name": full_name or "Patient",
+            "condition": patient.get("chronic_conditions", "Unknown"),
+            "last_visit": str(patient.get("updated_at", "N/A")),
+            "target_bp": "130/80"  # can be dynamic later
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching patient: {str(e)}")
+        return {
+            "name": "Patient",
+            "condition": "Unknown",
+            "last_visit": "N/A",
+            "target_bp": "N/A"
+        }
 
 def send_to_monitoring_agent(patient_id: str, summary: str) -> dict:
     """

@@ -1,65 +1,82 @@
-"""BigQuery client and utilities."""
-
 from typing import Optional, List, Dict, Any
+from google.cloud import bigquery
 
 
 class BigQueryClient:
     """Client for BigQuery data operations."""
-    
+
     def __init__(self, project_id: str, dataset_id: str):
-        """
-        Initialize BigQuery client.
-        
-        Args:
-            project_id: GCP project ID
-            dataset_id: BigQuery dataset ID
-        """
         self.project_id = project_id
         self.dataset_id = dataset_id
-        # TODO: Initialize actual BigQuery client
-    
-    async def query(self, sql: str, parameters: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        """
-        Execute a SQL query.
-        
-        Args:
-            sql: SQL query string
-            parameters: Query parameters (optional)
-            
-        Returns:
-            Query results as list of dictionaries
-        """
-        # TODO: Execute query
-        # TODO: Return results
-        return []
-    
+        self.client = bigquery.Client(project=self.project_id)
+
+    def _table_ref(self, table: str) -> str:
+        """Return full table reference"""
+        return f"{self.project_id}.{self.dataset_id}.{table}"
+
+    async def query(
+        self,
+        sql: str,
+        parameters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict]:
+        """Execute SQL query"""
+
+        job_config = bigquery.QueryJobConfig()
+
+        # Optional parameterized query
+        if parameters:
+            job_config.query_parameters = [
+                bigquery.ScalarQueryParameter(k, "STRING", v)
+                for k, v in parameters.items()
+            ]
+
+        query_job = self.client.query(sql, job_config=job_config)
+        results = query_job.result()
+
+        return [dict(row.items()) for row in results]
+
     async def insert(self, table: str, rows: List[Dict]) -> bool:
+        """Insert rows into BigQuery"""
+
+        table_ref = self._table_ref(table)
+
+        errors = self.client.insert_rows_json(table_ref, rows)
+
+        if errors:
+            print("Insert errors:", errors)
+            return False
+
+        return True
+
+    async def update(
+        self,
+        table: str,
+        where_clause: str,
+        updates: Dict
+    ) -> int:
+        """Update rows using SQL"""
+
+        table_ref = self._table_ref(table)
+
+        # Build SET clause
+        set_clause = ", ".join(
+            [f"{key} = @{key}" for key in updates.keys()]
+        )
+
+        sql = f"""
+        UPDATE `{table_ref}`
+        SET {set_clause}
+        WHERE {where_clause}
         """
-        Insert rows into a table.
-        
-        Args:
-            table: Table name
-            rows: List of row dictionaries
-            
-        Returns:
-            Success status
-        """
-        # TODO: Validate rows
-        # TODO: Insert into BigQuery
-        return False
-    
-    async def update(self, table: str, where_clause: str, updates: Dict) -> int:
-        """
-        Update rows in a table.
-        
-        Args:
-            table: Table name
-            where_clause: WHERE clause for update
-            updates: Dictionary of fields to update
-            
-        Returns:
-            Number of rows updated
-        """
-        # TODO: Build update query
-        # TODO: Execute update
-        return 0
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter(k, "STRING", v)
+                for k, v in updates.items()
+            ]
+        )
+
+        query_job = self.client.query(sql, job_config=job_config)
+        result = query_job.result()
+
+        return result.num_dml_affected_rows
