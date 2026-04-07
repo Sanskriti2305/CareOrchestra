@@ -53,15 +53,12 @@ Patient Data & Events
 ```
 apps/adk_app/
 ├── agents/          # AI agents (Coordinator, Vitals, Medication, ...)
-├── prompts/         # LLM prompts for each agent
 ├── tools/           # External integrations (BigQuery, Gmail, Calendar)
-├── services/        # Data access layer (Patient, Vitals, Medication, ...)
+├── services/        # Near-term scheduling support
 ├── schemas/         # Data models (Patient, Vitals, Medication, Alert, ...)
 ├── config.py        # Configuration management
 └── app.py           # Main entry point
 ```
-
-See [Architecture Documentation](docs/architecture.md) for details.
 
 ## Planned Integrations
 
@@ -69,8 +66,8 @@ See [Architecture Documentation](docs/architecture.md) for details.
 - ✅ Gmail (alert delivery)
 - ✅ Google Calendar (appointment scheduling)
 - 🔲 MCP Toolbox for BigQuery (future)
-- 🔲 FastAPI wrapper 
-- 🔲 Streamlit frontend (future)
+- ✅ FastAPI backend entrypoint
+- 🔲 ADK Web UI integration
 - 🔲 Advanced ML models for risk prediction (future)
 
 ## Getting Started
@@ -102,24 +99,15 @@ python infra/scripts/load_seed_data.py
 python -m apps.adk_app.app
 ```
 
-See [Demo Script](docs/demo_script.md) for detailed testing scenarios.
-
-## Documentation
-
-- **[Architecture](docs/architecture.md)** - System design and components
-- **[Agent Responsibilities](docs/agent_responsibilities.md)** - What each agent does
-- **[Workflows](docs/workflows.md)** - Example care coordination flows
-- **[BigQuery Schema](docs/bigquery_schema.md)** - Database structure
-- **[Demo Script](docs/demo_script.md)** - Running demo scenarios
+Use [data/README.md](data/README.md) for the demo scenarios, seed-data coverage, and BigQuery-backed workflow notes.
 
 ## Project Structure
 
 ```
 CareOrchestra/
-├── frontend/              # Placeholder for future UI
 ├── apps/
 │   ├── adk_app/          # Main ADK application
-│   └── api/              # Placeholder for FastAPI
+│   └── api/              # FastAPI backend entrypoint
 ├── mcp/
 │   └── toolbox/          # MCP Toolbox config (future)
 ├── data/
@@ -128,7 +116,6 @@ CareOrchestra/
 ├── infra/
 │   ├── scripts/          # Setup and deployment
 │   └── README.md
-├── docs/                 # Documentation
 ├── tests/                # Unit, integration, e2e tests
 ├── README.md
 ├── .env.example
@@ -148,8 +135,6 @@ CareOrchestra/
 | **Analysis** | Risk synthesis | What's the overall risk level? |
 | **Escalation** | Critical alerts | Who needs to know? How urgent? |
 | **Reporting** | Clinical summaries | What's important for providers? |
-
-See [Agent Responsibilities](docs/agent_responsibilities.md) for detailed info.
 
 ## How to Run
 activate the virtual env
@@ -199,15 +184,13 @@ pytest tests/e2e/
 pytest tests/
 ```
 
-See [Demo Script](docs/demo_script.md) for testing scenarios.
-
 ## Development Workflow
 
 ### Local Testing with Mock Data
 
 1. Load seed data: `python infra/scripts/load_seed_data.py`
 2. Run app: `python -m apps.adk_app.app`
-3. Trigger events: See demo scenarios in [Demo Script](docs/demo_script.md)
+3. Trigger events: use the payloads documented in [data/README.md](data/README.md)
 4. Verify outputs: Check alerts, emails, reports
 
 ### Real Integration
@@ -251,8 +234,8 @@ See `infra/scripts/deploy.sh` for detailed deployment script.
 - [ ] Unit and integration tests
 
 ### Phase 3
-- [ ] FastAPI wrapper for REST API
-- [ ] Streamlit frontend
+- [ ] ADK Web UI integration
+- [ ] Backend cleanup and hardening
 - [ ] Production deployment
 
 ### Phase 4
@@ -277,7 +260,7 @@ This is a starter project template. As you build out functionality:
 2. Use clear naming for services and tools
 3. Add comprehensive docstrings
 4. Write tests alongside code
-5. Document workflows in `docs/`
+5. Keep the root README and [data/README.md](data/README.md) up to date
 
 ## License
 
@@ -289,8 +272,4 @@ This is a starter project template. As you build out functionality:
 
 ---
 
-**Ready to get started?** See [Demo Script](docs/demo_script.md) for a hands-on walkthrough.
-
-**Want to understand the design?** Read [Architecture](docs/architecture.md) and [Workflows](docs/workflows.md).
-
-**Building your own agents?** Check [Agent Responsibilities](docs/agent_responsibilities.md) for patterns and best practices.
+**Ready to get started?** Start with this README, then use [data/README.md](data/README.md) for the demo scenarios and dataset details.

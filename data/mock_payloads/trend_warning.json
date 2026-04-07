@@ -1,0 +1,9 @@
+{
+  "event_type": "trend_check",
+  "event_id": "EVT_004",
+  "patient_id": "PT001",
+  "timestamp": "2025-04-06T09:00:00Z",
+  "focus": "blood_pressure",
+  "window_days": 30,
+  "reason": "scheduled_daily_trend_scan"
+}

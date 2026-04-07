@@ -174,4 +174,4 @@ Future improvements:
 
 ---
 
-See main [documentation](../../docs/) for architecture and workflows.
+See [README.md](../../README.md) for the project overview and [data/README.md](../../data/README.md) for the demo scenarios and dataset details.
