@@ -1,10 +1,30 @@
 # api/main.py
+import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import sys
 from apps.adk_app.app import CareOrchestraApp
 
-app = FastAPI()
+app = FastAPI(title="CareOrchestra API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Serve the patient chat frontend
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 orchestra = CareOrchestraApp()
 
@@ -26,6 +46,19 @@ async def handle_message(message: str, patient_id: str):
 
         return {"status": "success", "response": result}
 
+    except Exception as e:
+        import traceback
+        print(f"CRITICAL ERROR: {str(e)}")
+        print(traceback.format_exc())
+        return {"status": "error", "message": "An internal error occurred. Please try again."}
+
+
+@app.post("/chat")
+async def chat(payload: MessagePayload):
+    """Patient-facing chat endpoint. Accepts JSON body with message and patient_id."""
+    try:
+        result = await orchestra.process_event({"message": payload.message, "patient_id": payload.patient_id})
+        return {"status": "success", "response": result}
     except Exception as e:
         import traceback
         print(f"CRITICAL ERROR: {str(e)}")
