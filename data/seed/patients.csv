@@ -1,6 +1,7 @@
-patient_id,first_name,last_name,date_of_birth,phone,email,conditions,care_team,created_at
-PT001,John,Doe,1965-05-15,(555) 123-4567,john.doe@email.com,"hypertension,type2_diabetes",DR001,2025-04-01T10:00:00Z
-PT002,Marie,Chen,1972-08-22,(555) 234-5678,marie.chen@email.com,"heart_disease,hypertension",DR002,2025-04-01T11:00:00Z
-PT003,Robert,Williams,1958-12-03,(555) 345-6789,robert.williams@email.com,"type1_diabetes,hypertension",DR001,2025-04-01T12:00:00Z
-PT004,Patricia,Johnson,1970-03-17,(555) 456-7890,patricia.johnson@email.com,"asthma,allergies",DR003,2025-04-01T13:00:00Z
-PT005,James,Smith,1952-07-09,(555) 567-8901,james.smith@email.com,"copd,hypertension,heart_disease",DR002,2025-04-01T14:00:00Z
+patient_id,first_name,last_name,date_of_birth,phone,email,chronic_conditions,created_at
+PT001,John,Doe,1965-05-15,(555) 123-4567,john.doe@email.com,"hypertension,type2_diabetes",2025-04-01T10:00:00Z
+PT002,Marie,Chen,1972-08-22,(555) 234-5678,marie.chen@email.com,"heart_disease,hypertension",2025-04-01T11:00:00Z
+PT003,Robert,Williams,1958-12-03,(555) 345-6789,robert.williams@email.com,"type1_diabetes,hypertension",2025-04-01T12:00:00Z
+PT004,Patricia,Johnson,1970-03-17,(555) 456-7890,patricia.johnson@email.com,"asthma,allergies",2025-04-01T13:00:00Z
+PT005,James,Smith,1952-07-09,(555) 567-8901,james.smith@email.com,"copd,hypertension,heart_disease",2025-04-01T14:00:00Z
+
