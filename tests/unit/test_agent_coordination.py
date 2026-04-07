@@ -431,9 +431,3 @@ class TestEscalationPatientLabel:
             f"Expected 'Patient <id>', got: {sent_calls[0]!r}"
         )
         assert "PATIENT-XYZ" in sent_calls[0]
-
-
-# ---------------------------------------------------------------------------
-# Fix 1 — Double escalation prevention
-# ---------------------------------------------------------------------------
-
