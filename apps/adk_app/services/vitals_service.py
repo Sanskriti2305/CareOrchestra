@@ -28,12 +28,13 @@ class VitalsService:
             List of recent vital readings
         """
         try:
+            safe_limit = max(1, min(int(limit), 100))  # clamp to 1-100 to prevent injection
             query = f"""
             SELECT vital_type, value, unit, measured_at
             FROM `{bq_client.project_id}.{bq_client.dataset_id}.vitals`
             WHERE patient_id = @patient_id
             ORDER BY measured_at DESC
-            LIMIT {limit}
+            LIMIT {safe_limit}
             """
             return await bq_client.query(query, {"patient_id": patient_id})
         except Exception as e:
@@ -53,12 +54,13 @@ class VitalsService:
             List of readings in chronological order
         """
         try:
+            safe_days = max(1, min(int(days), 365))  # clamp to 1-365 to prevent injection
             query = f"""
             SELECT value, unit, measured_at
             FROM `{bq_client.project_id}.{bq_client.dataset_id}.vitals`
             WHERE patient_id = @patient_id
               AND vital_type = @vital_type
-              AND measured_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
+              AND measured_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_days} DAY)
             ORDER BY measured_at ASC
             """
             return await bq_client.query(

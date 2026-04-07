@@ -110,11 +110,12 @@ class MedicationService:
             List of missed dose records
         """
         try:
+            safe_days = max(1, min(int(days), 365))  # clamp to 1-365 to prevent injection
             query = f"""
             SELECT medication_id, medication_name, scheduled_time, taken
             FROM `{bq_client.project_id}.{bq_client.dataset_id}.medication_logs`
             WHERE patient_id = @patient_id
-              AND scheduled_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
+              AND scheduled_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_days} DAY)
               AND taken = FALSE
             ORDER BY scheduled_time DESC
             """

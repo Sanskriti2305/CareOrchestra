@@ -33,7 +33,7 @@ async def get_patient_vitals(patient_id: str) -> dict:
         patient_id: The patient's unique identifier.
     """
     try:
-        logger.info(f"Fetching vitals for patient_id={patient_id}")
+        logger.info(f"Fetching vitals for patient_id=***{patient_id[-4:]}")
 
         query = f"""
         SELECT
@@ -51,7 +51,7 @@ async def get_patient_vitals(patient_id: str) -> dict:
         results = await bq_client.query(query, {"patient_id": patient_id})
 
         if not results:
-            logger.warning(f"No vitals found for patient_id={patient_id}")
+            logger.warning(f"No vitals found for patient_id=***{patient_id[-4:]}")
             return {
                 "status": "no_data",
                 "patient_id": patient_id,
@@ -222,7 +222,7 @@ async def save_vitals_alert(
         }
         success = await bq_client.insert("alerts", [row])
         logger.info(
-            f"[Vitals Alert] patient={patient_id} type={alert_type} severity={severity}"
+            f"[Vitals Alert] patient=***{patient_id[-4:]} type={alert_type} severity={severity}"
         )
         return {"status": "saved" if success else "insert_failed", "alert": row}
 

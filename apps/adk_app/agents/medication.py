@@ -32,7 +32,7 @@ async def get_patient_medications(patient_id: str) -> dict:
         patient_id: The patient's unique identifier.
     """
     try:
-        logger.info(f"Fetching medications for patient_id={patient_id}")
+        logger.info(f"Fetching medications for patient_id=***{patient_id[-4:]}")
 
         query = f"""
         SELECT
@@ -52,7 +52,7 @@ async def get_patient_medications(patient_id: str) -> dict:
         results = await bq_client.query(query, {"patient_id": patient_id})
 
         if not results:
-            logger.warning(f"No active medications for patient_id={patient_id}")
+            logger.warning(f"No active medications for patient_id=***{patient_id[-4:]}")
             return {
                 "patient_id": patient_id,
                 "medications": [],
@@ -183,7 +183,7 @@ async def log_medication_taken(
 
         success = await bq_client.insert("medication_logs", [row])
         logger.info(
-            f"[Medication Log] patient={patient_id} med={medication_name} taken={taken}"
+            f"[Medication Log] patient=***{patient_id[-4:]} med={medication_name} taken={taken}"
         )
 
         return {

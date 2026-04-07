@@ -30,7 +30,7 @@ async def handle_message(message: str, patient_id: str):
         import traceback
         print(f"CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "An internal error occurred. Please try again."}
 
 
 @app.get("/vitals/{patient_id}")
@@ -51,7 +51,7 @@ async def analyze_vitals(patient_id: str):
         import traceback
         print(f"CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "An internal error occurred. Please try again."}
 
 
 @app.get("/vitals/{patient_id}/trend/{vital_type}")
@@ -72,7 +72,7 @@ async def check_vital_trend(patient_id: str, vital_type: str):
         import traceback
         print(f"CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "An internal error occurred. Please try again."}
 
 
 @app.post("/medication/checkin")
@@ -95,7 +95,7 @@ async def medication_checkin(payload: MessagePayload):
         import traceback
         print(f"CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "An internal error occurred. Please try again."}
 
 
 @app.get("/medication/{patient_id}/adherence")
@@ -116,5 +116,5 @@ async def get_adherence(patient_id: str):
         import traceback
         print(f"CRITICAL ERROR: {str(e)}")
         print(traceback.format_exc())
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "An internal error occurred. Please try again."}
 
