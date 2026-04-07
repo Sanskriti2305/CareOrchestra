@@ -4,7 +4,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from ..tools.bigquery_tools.client import BigQueryClient
-from .monitoring_agent import MonitoringAgent
+from .monitoring import MonitoringAgent
 load_dotenv()
 logger = logging.getLogger(__name__)
 
