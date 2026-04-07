@@ -3,24 +3,23 @@
 # core agent framework
 google-adk>=0.1.0
 
+# google ai / genai sdk
+google-genai>=1.0.0
+
 # google cloud integration
 google-cloud-bigquery>=3.12.0
-google-cloud-bigquery-storage>=2.20.0
-google-auth>=2.24.0
-google-auth-httplib2>=0.2.0
+google-cloud-logging>=3.5.0
 
-# google api clients
-google-api-python-client>=2.88.0
-google-auth-oauthlib>=1.1.0
+# web framework
+fastapi>=0.110.0
+uvicorn>=0.29.0
+
+# openai integration
+openai>=1.0.0
 
 # data handling
 pydantic>=2.0.0
 python-dotenv>=1.0.0
-pandas>=2.0.0
-
-# async support
-asyncio>=3.4.3
-aiohttp>=3.9.0
 
 # testing
 pytest>=7.4.0
@@ -34,17 +33,3 @@ black>=23.9.0
 isort>=5.12.0
 flake8>=6.1.0
 pylint>=2.17.0
-
-# logging and monitoring
-python-json-logger>=2.0.7
-
-# development and utilities
-ipython>=8.12.0
-ipdb>=0.13.0
-requests>=2.31.0
-google-generativeai
-python-dotenv
-google-cloud-logging
-google-cloud-bigquery
-pydantic
-sqlalchemy
