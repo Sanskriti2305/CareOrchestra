@@ -431,3 +431,184 @@ class TestEscalationPatientLabel:
             f"Expected 'Patient <id>', got: {sent_calls[0]!r}"
         )
         assert "PATIENT-XYZ" in sent_calls[0]
+
+
+# ---------------------------------------------------------------------------
+# Fix 9 — call_symptoms_agent wired into CoordinatorAgent
+# ---------------------------------------------------------------------------
+
+class TestSymptomsAgentCoordinatorIntegration:
+    """call_symptoms_agent must be registered in CoordinatorAgent.tools and
+    correctly delegate to assess_symptoms."""
+
+    def test_call_symptoms_agent_in_coordinator_tools(self):
+        """call_symptoms_agent must appear in CoordinatorAgent.tools."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        agent = coord_mod.CoordinatorAgent()
+        tool_names = [getattr(t, "__name__", str(t)) for t in agent.tools]
+        assert "call_symptoms_agent" in tool_names, (
+            f"call_symptoms_agent not in CoordinatorAgent.tools; got: {tool_names}"
+        )
+
+    def test_call_symptoms_agent_delegates_to_assess_symptoms(self):
+        """call_symptoms_agent must call assess_symptoms and return its result."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        mock_result = "CLINICAL ASSESSMENT\nRisk Score: 30/100\nSeverity: LOW"
+
+        with patch.object(coord_mod, "assess_symptoms", return_value=mock_result) as mock_assess:
+            result = coord_mod.call_symptoms_agent(
+                patient_id="P001",
+                raw_message="I have a mild headache",
+                age=60,
+                conditions="hypertension",
+                medications="Lisinopril",
+                vitals_flag="normal",
+            )
+
+        assert result == mock_result
+        mock_assess.assert_called_once_with(
+            raw_message="I have a mild headache",
+            patient_id="P001",
+            age=60,
+            conditions="hypertension",
+            medications="Lisinopril",
+            vitals_flag="normal",
+        )
+
+    def test_call_symptoms_agent_passes_vitals_flag(self):
+        """vitals_flag must be forwarded to assess_symptoms unchanged."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        captured: list[str] = []
+
+        def capture_assess(**kwargs):
+            captured.append(kwargs.get("vitals_flag", ""))
+            return "CLINICAL ASSESSMENT\nRisk Score: 80/100"
+
+        with patch.object(coord_mod, "assess_symptoms", side_effect=capture_assess):
+            coord_mod.call_symptoms_agent(
+                patient_id="P002",
+                raw_message="chest pain",
+                age=65,
+                conditions="heart_disease",
+                medications="aspirin",
+                vitals_flag="critical",
+            )
+
+        assert captured == ["critical"], (
+            f"Expected vitals_flag 'critical', got: {captured}"
+        )
+
+    def test_call_symptoms_agent_default_vitals_flag_is_normal(self):
+        """When vitals_flag is omitted, it should default to 'normal'."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        captured: list[str] = []
+
+        def capture_assess(**kwargs):
+            captured.append(kwargs.get("vitals_flag", ""))
+            return "CLINICAL ASSESSMENT\nRisk Score: 10/100"
+
+        with patch.object(coord_mod, "assess_symptoms", side_effect=capture_assess):
+            coord_mod.call_symptoms_agent(
+                patient_id="P003",
+                raw_message="feeling a bit tired",
+                age=45,
+                conditions="asthma",
+                medications="inhaler",
+            )
+
+        assert captured == ["normal"], (
+            f"Expected default vitals_flag 'normal', got: {captured}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Fix 10 — get_patient_profile returns age
+# ---------------------------------------------------------------------------
+
+class TestPatientProfileAge:
+    """get_patient_profile must compute and return the patient's age from
+    date_of_birth so that call_symptoms_agent can receive a valid age."""
+
+    @pytest.mark.asyncio
+    async def test_age_returned_for_known_dob(self):
+        """age must be a positive integer computed from date_of_birth."""
+        import datetime
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        dob = datetime.date(1965, 5, 15)
+        mock_rows = [{
+            "first_name": "John",
+            "last_name": "Doe",
+            "chronic_conditions": "hypertension,type2_diabetes",
+            "date_of_birth": dob,
+            "updated_at": "2025-04-01",
+        }]
+        mock_bq = MagicMock()
+        mock_bq.query = AsyncMock(return_value=mock_rows)
+
+        with patch.object(coord_mod, "bq_client", mock_bq):
+            result = await coord_mod.get_patient_profile("PT001")
+
+        assert "age" in result, "age key missing from get_patient_profile result"
+        assert result["age"] >= 59, (
+            f"Expected age >= 59 for DOB 1965-05-15, got: {result['age']}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_age_zero_when_no_patient_found(self):
+        """age must default to 0 when no patient row is returned."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        mock_bq = MagicMock()
+        mock_bq.query = AsyncMock(return_value=[])
+
+        with patch.object(coord_mod, "bq_client", mock_bq):
+            result = await coord_mod.get_patient_profile("UNKNOWN")
+
+        assert result["age"] == 0
+
+    @pytest.mark.asyncio
+    async def test_age_zero_when_dob_missing(self):
+        """age must default to 0 when date_of_birth is absent from the row."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        mock_rows = [{
+            "first_name": "Jane",
+            "last_name": "Smith",
+            "chronic_conditions": "asthma",
+            "date_of_birth": None,
+            "updated_at": "2025-04-01",
+        }]
+        mock_bq = MagicMock()
+        mock_bq.query = AsyncMock(return_value=mock_rows)
+
+        with patch.object(coord_mod, "bq_client", mock_bq):
+            result = await coord_mod.get_patient_profile("PT002")
+
+        assert result["age"] == 0
+
+    @pytest.mark.asyncio
+    async def test_age_from_string_dob(self):
+        """age must be computed correctly when date_of_birth is a string."""
+        import apps.adk_app.agents.coordinator as coord_mod
+
+        mock_rows = [{
+            "first_name": "Bob",
+            "last_name": "Jones",
+            "chronic_conditions": "copd",
+            "date_of_birth": "1952-07-09",
+            "updated_at": "2025-04-01",
+        }]
+        mock_bq = MagicMock()
+        mock_bq.query = AsyncMock(return_value=mock_rows)
+
+        with patch.object(coord_mod, "bq_client", mock_bq):
+            result = await coord_mod.get_patient_profile("PT005")
+
+        assert result["age"] >= 72, (
+            f"Expected age >= 72 for DOB 1952-07-09, got: {result['age']}"
+        )

@@ -1,5 +1,6 @@
 import os
 import logging
+import datetime
 import concurrent.futures
 import asyncio
 from google import genai
@@ -11,6 +12,7 @@ from .vitals import VitalsAgent, get_patient_vitals
 from .medication import MedicationAgent, get_adherence_summary
 from .analysis import AnalysisAgent
 from .escalation import EscalationAgent
+from .Symptoms_agent import assess_symptoms
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -21,6 +23,27 @@ bq_client = BigQueryClient(
     project_id=os.getenv("GCP_PROJECT_ID"),
     dataset_id="careorchestra"
 )
+
+
+
+def _calculate_age(dob) -> int:
+    """Return the current age in years from a date of birth.
+
+    Accepts a ``datetime.date`` object or any value whose first 10 characters
+    are a valid ISO-8601 date string (YYYY-MM-DD).  Returns 0 when the value
+    is absent or cannot be parsed.
+    """
+    if not dob:
+        return 0
+    try:
+        if not isinstance(dob, datetime.date):
+            dob = datetime.date.fromisoformat(str(dob)[:10])
+        today = datetime.date.today()
+        # Subtract 1 when the birthday hasn't occurred yet this year
+        birthday_passed = (today.month, today.day) >= (dob.month, dob.day)
+        return today.year - dob.year - (0 if birthday_passed else 1)
+    except Exception:
+        return 0
 
 
 async def get_patient_profile(patient_id: str) -> dict:
@@ -39,6 +62,7 @@ async def get_patient_profile(patient_id: str) -> dict:
             first_name,
             last_name,
             chronic_conditions,
+            date_of_birth,
             updated_at
         FROM `{bq_client.project_id}.{bq_client.dataset_id}.patients`
         WHERE patient_id = @patient_id
@@ -54,6 +78,7 @@ async def get_patient_profile(patient_id: str) -> dict:
             logger.warning(f"No patient found for patient_id={patient_id}")
             return {
                 "name": "Patient",
+                "age": 0,
                 "condition": "Unknown",
                 "last_visit": "N/A",
                 "target_bp": "N/A"
@@ -63,10 +88,13 @@ async def get_patient_profile(patient_id: str) -> dict:
 
         full_name = f"{patient.get('first_name', '')} {patient.get('last_name', '')}".strip()
 
-        logger.info(f"Patient found: {full_name}")
+        age = _calculate_age(patient.get("date_of_birth"))
+
+        logger.info(f"Patient found: {full_name}, age={age}")
 
         return {
             "name": full_name or "Patient",
+            "age": age,
             "condition": patient.get("chronic_conditions", "Unknown"),
             "last_visit": str(patient.get("updated_at", "N/A")),
             "target_bp": "130/80"  # can be dynamic later
@@ -76,6 +104,7 @@ async def get_patient_profile(patient_id: str) -> dict:
         logger.error(f"Error fetching patient: {str(e)}")
         return {
             "name": "Patient",
+            "age": 0,
             "condition": "Unknown",
             "last_visit": "N/A",
             "target_bp": "N/A"
@@ -248,10 +277,50 @@ def escalate_patient(patient_id: str, risk_level: str, summary: str) -> dict:
     return result
 
 
+def call_symptoms_agent(
+    patient_id: str,
+    raw_message: str,
+    age: int,
+    conditions: str,
+    medications: str,
+    vitals_flag: str = "normal",
+) -> str:
+    """
+    Run the Symptoms Agent to perform a structured clinical assessment of what
+    the patient just reported.  Call this after the patient has described their
+    symptoms (1-2 messages), before calling send_to_monitoring_agent.
+
+    Args:
+        patient_id: The patient's unique identifier.
+        raw_message: The patient's latest message describing their symptoms.
+        age: Patient age in years — use the 'age' field returned by get_patient_profile.
+        conditions: Comma-separated chronic conditions from get_patient_profile
+                    (e.g. "hypertension,type2_diabetes").
+        medications: Comma-separated current medication names, or "unknown" if not
+                     available from call_medication_agent.
+        vitals_flag: Severity flag derived from call_vitals_agent — pass "warning"
+                     if vitals_agent reported issues, "critical" for critical issues,
+                     or "normal" if no abnormalities were found.
+
+    Returns:
+        A clinical assessment string with risk score (0-100), severity level,
+        escalation recommendation, and reason.  Include this in the summary you
+        pass to send_to_monitoring_agent.
+    """
+    return assess_symptoms(
+        raw_message=raw_message,
+        patient_id=patient_id,
+        age=age,
+        conditions=conditions,
+        medications=medications,
+        vitals_flag=vitals_flag,
+    )
+
+
 SYSTEM_INSTRUCTION = """You are the Coordinator Agent for CareOrchestra, a chronic care system.
 
 Your job:
-1. Call get_patient_profile first to load the patient's name and conditions
+1. Call get_patient_profile first to load the patient's name, age, and conditions
 2. Call call_vitals_agent to retrieve the patient's current vital signs
 3. Call call_medication_agent to check their recent medication adherence
 4. Call call_analysis_agent to get a composite risk score combining vitals and medication data
@@ -260,11 +329,20 @@ Your job:
    - Any symptoms they are experiencing
    - Their energy and mood
    - Whether they have taken their medications today
-7. After 2-3 exchanges call send_to_monitoring_agent with a clear summary that
-   includes both what the patient reported AND the objective vitals/adherence data
-8. If send_to_monitoring_agent returns escalation_needed=True, immediately call
+7. Once the patient has described any symptoms (after 1-2 symptom messages), call
+   call_symptoms_agent with:
+   - patient_id: the patient's ID
+   - raw_message: the patient's symptom description
+   - age: the 'age' value from get_patient_profile
+   - conditions: the 'condition' value from get_patient_profile
+   - medications: medication names if available, or "unknown"
+   - vitals_flag: "warning" if call_vitals_agent reported any issues, "normal" otherwise
+8. After call_symptoms_agent, call send_to_monitoring_agent with a clear summary that
+   includes the patient's report, the objective vitals/adherence data, AND the
+   symptoms assessment risk score and severity
+9. If send_to_monitoring_agent returns escalation_needed=True, immediately call
    escalate_patient with the patient_id, risk_level, and symptom summary
-9. Relay the monitoring agent's response back in warm, simple language
+10. Relay the monitoring agent's response back in warm, simple language
 
 Rules:
 - One question per turn only
@@ -280,6 +358,7 @@ class CoordinatorAgent:
             call_vitals_agent,
             call_medication_agent,
             call_analysis_agent,
+            call_symptoms_agent,
             send_to_monitoring_agent,
             escalate_patient,
         ]
