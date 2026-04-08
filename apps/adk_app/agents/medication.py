@@ -232,7 +232,8 @@ class MedicationAgent:
     """
 
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+        api_key = os.getenv("GOOGLE_API_KEY")
+        self.client = genai.Client(api_key=api_key) if api_key else None
         self.tools = [get_patient_medications, get_adherence_summary, log_medication_taken]
         self.history: list[types.Content] = []  # per-instance conversation history
 
@@ -250,6 +251,22 @@ class MedicationAgent:
         user_message = event.get("message")
 
         try:
+            if self.client is None:
+                summary = await get_adherence_summary(patient_id)
+                adherence_rate = summary.get("adherence_rate")
+                if adherence_rate is None:
+                    message = "I could not find recent medication logs in demo mode."
+                elif adherence_rate < 80:
+                    message = f"Your recent adherence is {adherence_rate}%, which needs attention."
+                else:
+                    message = f"Your recent adherence is {adherence_rate}%. Keep taking medications as prescribed."
+
+                return {
+                    "status": "success",
+                    "agent": "MedicationAgent (mock)",
+                    "message_to_patient": message,
+                }
+
             self.history.append(
                 types.Content(
                     role="user",

@@ -37,6 +37,22 @@ chmod +x infra/scripts/setup_bigquery.sh
 ./infra/scripts/setup_bigquery.sh <PROJECT_ID>
 ```
 
+### setup_bigquery.ps1 (Windows PowerShell)
+
+Creates the dataset and tables expected by the current runtime agents.
+
+**Usage**:
+
+```powershell
+pwsh -File infra/scripts/setup_bigquery.ps1 -ProjectId <PROJECT_ID>
+```
+
+Load seed CSV files too:
+
+```powershell
+pwsh -File infra/scripts/setup_bigquery.ps1 -ProjectId <PROJECT_ID> -LoadSeed
+```
+
 **Example**:
 
 ```bash

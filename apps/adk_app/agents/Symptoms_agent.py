@@ -94,8 +94,11 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 if not GROQ_API_KEY:
     logger.warning("GROQ_API_KEY not set")
-
-client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+client = (
+    OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+    if GROQ_API_KEY
+    else None
+)
 
 class ResponseCache:
     def __init__(self, ttl_seconds: int = 3600):
@@ -125,11 +128,89 @@ class ResponseCache:
 
 _response_cache = ResponseCache(ttl_seconds=3600)
 
+
+def _fallback_llm_response(system: str, user_content: str) -> str:
+    """Return a deterministic local response when Groq/OpenAI is unavailable."""
+    if "Extract symptoms" in system:
+        message = user_content.split("Message:", 1)[-1].strip().lower()
+        greeting_tokens = ("hello", "hi", "hey", "good morning", "good afternoon")
+        if any(token in message for token in greeting_tokens):
+            return json.dumps({"intent": "greeting", "symptoms": []})
+
+        symptom_terms = [
+            "chest pain",
+            "chest tightness",
+            "headache",
+            "shortness of breath",
+            "dizziness",
+            "vomiting",
+            "nausea",
+            "fever",
+            "cough",
+            "fatigue",
+            "pain",
+            "swelling",
+        ]
+        symptoms = []
+        for term in symptom_terms:
+            if term in message:
+                symptoms.append({
+                    "name": term.replace(" ", "_"),
+                    "raw_text": term,
+                    "negated": False,
+                    "duration_hint": None,
+                })
+
+        return json.dumps({
+            "intent": "symptom" if symptoms else "other",
+            "symptoms": symptoms,
+        })
+
+    if "Assess clinical risk" in system:
+        is_auto = "Auto-escalate: True" in user_content or "Auto-escalate: true" in user_content
+        red_flag_count = 0
+        for line in user_content.splitlines():
+            if line.startswith("Red flags:"):
+                try:
+                    red_flag_count = int(line.split(":", 1)[1].strip())
+                except Exception:
+                    red_flag_count = 0
+                break
+
+        if is_auto:
+            severity = "critical"
+            risk_score = 90
+            escalation = "call_emergency"
+            reason = "Local fallback detected an auto-escalation condition."
+        elif red_flag_count > 0:
+            severity = "high"
+            risk_score = 70
+            escalation = "schedule_urgent"
+            reason = "Local fallback detected red-flag symptoms."
+        else:
+            severity = "moderate"
+            risk_score = 35
+            escalation = "monitor"
+            reason = "Local fallback could not detect a critical pattern."
+
+        return json.dumps({
+            "severity": severity,
+            "risk_score": risk_score,
+            "confidence": "medium",
+            "escalation": escalation,
+            "escalation_reason": reason,
+        })
+
+    return "{}"
+
 def _call_llm(system: str, user_content: str, use_cache: bool = True) -> str:
     if use_cache:
         cached = _response_cache.get(system, user_content)
         if cached:
             return cached
+
+    if client is None:
+        return _fallback_llm_response(system, user_content)
     
     response = client.chat.completions.create(
         model=GROQ_MODEL,

@@ -352,7 +352,8 @@ Rules:
 
 class CoordinatorAgent:
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+        api_key = os.getenv("GOOGLE_API_KEY")
+        self.client = genai.Client(api_key=api_key) if api_key else None
         self.tools = [
             get_patient_profile,
             call_vitals_agent,
@@ -369,6 +370,21 @@ class CoordinatorAgent:
         user_message = event.get("message")
 
         try:
+            if self.client is None:
+                profile = await get_patient_profile(patient_id)
+                assessment = assess_symptoms(
+                    user_message,
+                    patient_id,
+                    profile.get("age", 0),
+                    profile.get("condition", "Unknown"),
+                    "",
+                )
+                return {
+                    "status": "success",
+                    "agent": "Coordinator (mock)",
+                    "message_to_patient": assessment,
+                }
+
             # append user turn
             self.history.append(
                 types.Content(

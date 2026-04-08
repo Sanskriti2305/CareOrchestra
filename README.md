@@ -156,7 +156,16 @@ activate the virtual env
 `source care-env/bin/activate`
 
 Run fast api entry point
-`PYTHONPATH=. uvicorn apps.api.main:app --reload`
+`PYTHONPATH=. python -m uvicorn apps.api.main:app --reload`
+
+Windows (recommended)
+`powershell -ExecutionPolicy Bypass -File .\infra\scripts\start_api.ps1 -Port 8000`
+
+Windows (direct uvicorn)
+`& 'D:\CareOrchestra_MyCopy\.venv\Scripts\python.exe' -m uvicorn --app-dir 'D:\CareOrchestra_MyCopy\CareOrchestra' apps.api.main:app --host 0.0.0.0 --port 8000`
+
+If your service account does not have Cloud Logging write permission,
+keep `ENABLE_GCP_LOGGING=false` (default behavior in code).
 
 
 ## Configuration

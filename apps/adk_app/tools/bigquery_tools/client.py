@@ -1,5 +1,10 @@
+import logging
+import os
 from typing import Optional, List, Dict, Any
 from google.cloud import bigquery
+
+
+logger = logging.getLogger(__name__)
 
 
 class BigQueryClient:
@@ -8,7 +13,20 @@ class BigQueryClient:
     def __init__(self, project_id: str, dataset_id: str):
         self.project_id = project_id
         self.dataset_id = dataset_id
-        self.client = bigquery.Client(project=self.project_id)
+        self.mock_mode = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
+        self.client = None
+
+        if not self.mock_mode:
+            try:
+                self.client = bigquery.Client(project=self.project_id)
+            except Exception as exc:
+                self.mock_mode = True
+                logger.warning(
+                    "BigQuery client unavailable, falling back to mock mode: %s",
+                    exc,
+                )
+        else:
+            logger.info("BigQuery client running in mock mode.")
 
     def _table_ref(self, table: str) -> str:
         """Return full table reference"""
@@ -20,6 +38,9 @@ class BigQueryClient:
         parameters: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Execute SQL query"""
+
+        if self.client is None:
+            return []
 
         job_config = bigquery.QueryJobConfig()
 
@@ -38,6 +59,9 @@ class BigQueryClient:
     async def insert(self, table: str, rows: List[Dict]) -> bool:
         """Insert rows into BigQuery"""
 
+        if self.client is None:
+            return True
+
         table_ref = self._table_ref(table)
 
         errors = self.client.insert_rows_json(table_ref, rows)
@@ -55,6 +79,9 @@ class BigQueryClient:
         updates: Dict
     ) -> int:
         """Update rows using SQL"""
+
+        if self.client is None:
+            return 0
 
         table_ref = self._table_ref(table)
 

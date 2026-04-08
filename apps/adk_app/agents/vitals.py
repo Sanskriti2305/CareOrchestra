@@ -287,7 +287,8 @@ class VitalsAgent:
     """
 
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+        api_key = os.getenv("GOOGLE_API_KEY")
+        self.client = genai.Client(api_key=api_key) if api_key else None
         self.tools = [get_patient_vitals, get_vitals_trend, save_vitals_alert]
 
     async def analyze_vitals(self, patient_id: str) -> dict:
@@ -301,6 +302,20 @@ class VitalsAgent:
             dict with 'status', 'agent', 'patient_id', and 'assessment' keys.
         """
         try:
+            if self.client is None:
+                vitals = await get_patient_vitals(patient_id)
+                return {
+                    "status": "success",
+                    "agent": "VitalsAgent (mock)",
+                    "patient_id": patient_id,
+                    "assessment": (
+                        f"Mock vitals summary: {vitals.get('latest', {}).get('bp', 'N/A')}, "
+                        f"HR {vitals.get('latest', {}).get('heart_rate', 'N/A')}, "
+                        f"Glucose {vitals.get('latest', {}).get('glucose', 'N/A')}, "
+                        f"SpO2 {vitals.get('latest', {}).get('spo2', 'N/A')}"
+                    ),
+                }
+
             prompt = (
                 f"[Patient ID: {patient_id}] "
                 "Please assess this patient's vital signs and identify any concerning patterns."

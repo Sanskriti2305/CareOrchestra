@@ -109,3 +109,6 @@ Thumbs.db
 # Project-specific
 .mypy_cache/
 .pylint.d/
+
+# Local service account key
+credentials.json
