@@ -51,6 +51,18 @@ def _make_google_stubs():
     auth_mod = types.ModuleType("google.auth")
     google_pkg.auth = auth_mod
 
+    # google.oauth2 (needed by GmailSender real mode)
+    oauth2_mod = types.ModuleType("google.oauth2")
+    oauth2_mod.__path__ = []
+    google_pkg.oauth2 = oauth2_mod
+    sa_mod = types.ModuleType("google.oauth2.service_account")
+    mock_sa_creds = MagicMock()
+    mock_sa_creds.with_subject = MagicMock(return_value=mock_sa_creds)
+    sa_mod.Credentials = MagicMock(
+        from_service_account_file=MagicMock(return_value=mock_sa_creds)
+    )
+    oauth2_mod.service_account = sa_mod
+
     # google.adk.agents
     adk_pkg = types.ModuleType("google.adk")
     adk_pkg.__path__ = []
@@ -72,6 +84,8 @@ def _make_google_stubs():
         "google.genai": genai_mod,
         "google.genai.types": genai_types_mod,
         "google.auth": auth_mod,
+        "google.oauth2": oauth2_mod,
+        "google.oauth2.service_account": sa_mod,
         "google.adk": adk_pkg,
         "google.adk.agents": adk_agents_mod,
     }
@@ -88,3 +102,17 @@ if "openai" not in sys.modules:
     _openai_stub = types.ModuleType("openai")
     _openai_stub.OpenAI = MagicMock
     sys.modules["openai"] = _openai_stub
+
+# Stub googleapiclient (used by GmailSender real mode)
+if "googleapiclient" not in sys.modules:
+    _gac_pkg = types.ModuleType("googleapiclient")
+    _gac_pkg.__path__ = []
+    _gac_discovery = types.ModuleType("googleapiclient.discovery")
+    _gac_discovery.build = MagicMock(return_value=MagicMock())
+    _gac_errors = types.ModuleType("googleapiclient.errors")
+    _gac_errors.HttpError = type("HttpError", (Exception,), {})
+    _gac_pkg.discovery = _gac_discovery
+    _gac_pkg.errors = _gac_errors
+    sys.modules["googleapiclient"] = _gac_pkg
+    sys.modules["googleapiclient.discovery"] = _gac_discovery
+    sys.modules["googleapiclient.errors"] = _gac_errors

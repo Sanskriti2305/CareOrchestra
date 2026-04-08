@@ -19,8 +19,15 @@ class GoogleConfig:
 @dataclass
 class GmailConfig:
     """Gmail integration configuration."""
+
     sender_email: str = os.getenv("GMAIL_SENDER_EMAIL", "")
     use_mock: bool = os.getenv("GMAIL_USE_MOCK", "true").lower() == "true"
+    # Path to the service-account JSON key (real mode only).
+    # Falls back to GOOGLE_APPLICATION_CREDENTIALS if not set.
+    credentials_path: Optional[str] = os.getenv("GMAIL_CREDENTIALS_PATH")
+    # Workspace account the service account will impersonate.
+    # Falls back to sender_email if not set.
+    delegated_account: Optional[str] = os.getenv("GMAIL_DELEGATED_ACCOUNT")
 
 
 @dataclass
