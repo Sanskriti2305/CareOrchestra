@@ -258,9 +258,8 @@ async def send_to_monitoring_agent(patient_id: str, summary: str) -> dict:
     # prevent a second alert being sent by the Coordinator.
     already_escalated = result.get("action") in ("escalated", "alerted")
     escalation_needed = risk_level in ("high", "critical") and not already_escalated
-    if escalation_needed and risk_level == "critical":
-        
-        # ✅ STEP 2: Hospital API mock slots (realistic doctors/times)
+    if risk_level in ("high", "critical"):
+
         scheduling = SchedulingAgent()
         slots = await scheduling.get_available_slots()
 
@@ -268,17 +267,17 @@ async def send_to_monitoring_agent(patient_id: str, summary: str) -> dict:
         first_name = profile.get("name", "there").split(" ")[0]
 
         return {
-            "status": "critical_scheduling_needed",
+            "status": "slot_selection_needed",
             "risk_level": risk_level,
-            "slots": slots,  # Pass structured data to Gemini
-            "escalation_result": {"status": "handled_by_llm"},
+            "slots": slots,
             "message_to_patient": f"""
-Hi {first_name}, your condition is critical. I've alerted your doctor via email.
+    Hi {first_name}, based on your symptoms, I recommend seeing a doctor soon.
 
-Available urgent slots (Hospital API):
-""" + "\n".join([f"{i+1}. {slot['doctor']} at {slot['time']}" for i, slot in enumerate(slots[:3])]) + """
+    Here are the available appointment slots:
 
-Reply with slot number (1, 2, 3) to book.
+    """ + "\n".join([f"{i+1}. {slot['doctor']} at {slot['time']}" for i, slot in enumerate(slots[:3])]) + """
+
+    Please reply with the slot number (1, 2, or 3) to confirm your booking.
             """,
             "selection_state": "waiting_for_slot_selection"
         }
@@ -508,16 +507,27 @@ class CoordinatorAgent:
             )
 
             # ── Capture slot state if monitoring returned critical ────────
-            for part in response.candidates[0].content.parts:
-                func_resp = getattr(part, "function_response", None)
+            candidates = getattr(response, "candidates", [])
 
-                if func_resp and getattr(func_resp, "response", None):
-                    resp = func_resp.response or {}
+            if candidates and getattr(candidates[0], "content", None):
+                parts = getattr(candidates[0].content, "parts", [])
 
-                    if resp.get("status") == "critical_scheduling_needed":
-                        self.pending_slots = resp.get("slots", [])
-                        self.selection_state = resp.get("selection_state", "")
-                        break
+                if parts:
+                    for part in parts:
+                        func_resp = getattr(part, "function_response", None)
+
+                        if func_resp and getattr(func_resp, "response", None):
+                            resp = func_resp.response or {}
+
+                            if resp.get("status") in ("critical_scheduling_needed", "slot_selection_needed"):
+                                self.pending_slots = resp.get("slots", [])
+                                self.selection_state = resp.get("selection_state", "")
+
+                                return {
+                                    "status": "success",
+                                    "agent": "Coordinator",
+                                    "message_to_patient": resp.get("message_to_patient", "Please select a slot.")
+                                }
                    
             # ─────────────────────────────────────────────────────────────
 
