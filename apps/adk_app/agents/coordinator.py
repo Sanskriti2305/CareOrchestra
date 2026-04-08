@@ -444,10 +444,13 @@ class CoordinatorAgent:
 
         try:
             # ── Slot selection intercept ──────────────────────────────────
-            if self.selection_state == "waiting_for_slot_selection" and self.pending_slots:
+            slots = event.get("slots", [])
+            state = event.get("selection_state", "")
+
+            if state == "waiting_for_slot_selection" and slots:
                 if user_message in ("1", "2", "3"):
                     slot_number = int(user_message)
-                    result = await handle_slot_selection(patient_id, slot_number, self.pending_slots)
+                    result = await handle_slot_selection(patient_id, slot_number, slots)
                     self.selection_state = ""
                     self.pending_slots = []
                     if result.get("status") == "confirmed":
