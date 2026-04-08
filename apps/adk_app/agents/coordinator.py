@@ -13,6 +13,7 @@ from .medication import MedicationAgent, get_adherence_summary
 from .analysis import AnalysisAgent
 from .escalation import EscalationAgent
 from .Symptoms_agent import assess_symptoms
+from .scheduling import SchedulingAgent
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -221,15 +222,40 @@ async def send_to_monitoring_agent(patient_id: str, summary: str) -> dict:
     # prevent a second alert being sent by the Coordinator.
     already_escalated = result.get("action") in ("escalated", "alerted")
     escalation_needed = risk_level in ("high", "critical") and not already_escalated
+    if escalation_needed and risk_level == "critical":
+        
+        # ✅ STEP 2: Hospital API mock slots (realistic doctors/times)
+        scheduling = SchedulingAgent()
+        slots = await scheduling.get_available_slots()
+
+        profile = await get_patient_profile(patient_id)
+        first_name = profile.get("name", "there").split(" ")[0]
+
+        return {
+            "status": "critical_scheduling_needed",
+            "risk_level": risk_level,
+            "slots": slots,  # Pass structured data to Gemini
+            "escalation_result": {"status": "handled_by_llm"},
+            "message_to_patient": f"""
+Hi {first_name}, your condition is critical. I've alerted your doctor via email.
+
+Available urgent slots (Hospital API):
+""" + "\n".join([f"{i+1}. {slot['doctor']} at {slot['time']}" for i, slot in enumerate(slots[:3])]) + """
+
+Reply with slot number (1, 2, 3) to book.
+            """,
+            "selection_state": "waiting_for_slot_selection"
+        }
 
     return {
         **result,
         "escalation_needed": escalation_needed,
-        "patient_id": patient_id,
     }
 
+    
 
-def escalate_patient(patient_id: str, risk_level: str, summary: str) -> dict:
+
+async def escalate_patient(patient_id: str, risk_level: str, summary: str) -> dict:
     """
     Escalate a high-risk patient to the healthcare team.
     Call this immediately when send_to_monitoring_agent returns
@@ -370,6 +396,7 @@ class CoordinatorAgent:
             call_symptoms_agent,
             send_to_monitoring_agent,
             escalate_patient,
+            # TODO: handle_slot_selection (for patient choice),
         ]
         self.history: list[types.Content] = []   # we own the chat history
 
