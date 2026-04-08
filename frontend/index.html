@@ -339,6 +339,7 @@
     e.preventDefault();
     const id = patientInput.value.trim();
     if (!id) return;
+    console.log("🟢 User entered patient_id:", id);  
     startChat(id);
   });
 
@@ -348,13 +349,14 @@
   });
 
   function startChat(id) {
+    console.log("🟢 User entered patient_id:", id);  
     patientId = id;
     patientLabel.textContent = id;
     loginPanel.style.display = 'none';
     chatPanel.classList.add('active');
     msgInput.focus();
     updateSendBtn();
-    appendBot("Hello! I'm your CareOrchestra health assistant. How are you feeling today?");
+    appendBot(`Hello There! I'm your CareOrchestra health assistant. How are you feeling today?`);
   }
 
   function resetChat() {
@@ -401,6 +403,7 @@
     const typingEl = appendTyping();
 
     try {
+      console.log("📤 Sending request with patient_id:", patientId);
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
