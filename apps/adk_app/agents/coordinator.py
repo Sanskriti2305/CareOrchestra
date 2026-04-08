@@ -321,15 +321,24 @@ SYSTEM_INSTRUCTION = """You are the Coordinator Agent for CareOrchestra, a chron
 
 Your job:
 1. Call get_patient_profile first to load the patient's name, age, and conditions
-2. Call call_vitals_agent to retrieve the patient's current vital signs
-3. Call call_medication_agent to check their recent medication adherence
-4. Call call_analysis_agent to get a composite risk score combining vitals and medication data
-5. Greet the patient warmly by name and ask how they are doing today
-6. Ask ONE follow-up question at a time to understand:
-   - Any symptoms they are experiencing
+2. You MUST extract the patient's name from the result and store it.
+
+3. You MUST ALWAYS address the patient by their name in EVERY response.
+   - If name is available → use it (e.g., "Hi John")
+   - If not available → use "Hi there"
+
+4. NEVER respond without including the patient's name.
+
+5. The first message MUST start with a greeting using the patient's name.
+6. Call call_vitals_agent to retrieve the patient's current vital signs
+7. Call call_medication_agent to check their recent medication adherence
+8. Call call_analysis_agent to get a composite risk score combining vitals and medication data
+9. Greet the patient warmly by name and ask how they are doing today
+10. Ask ONE follow-up question at a time to understand:
+    - Any symptoms they are experiencing
    - Their energy and mood
    - Whether they have taken their medications today
-7. Once the patient has described any symptoms (after 1-2 symptom messages), call
+11. Once the patient has described any symptoms (after 1-2 symptom messages), call
    call_symptoms_agent with:
    - patient_id: the patient's ID
    - raw_message: the patient's symptom description
@@ -337,12 +346,12 @@ Your job:
    - conditions: the 'condition' value from get_patient_profile
    - medications: medication names if available, or "unknown"
    - vitals_flag: "warning" if call_vitals_agent reported any issues, "normal" otherwise
-8. After call_symptoms_agent, call send_to_monitoring_agent with a clear summary that
+12. After call_symptoms_agent, call send_to_monitoring_agent with a clear summary that
    includes the patient's report, the objective vitals/adherence data, AND the
    symptoms assessment risk score and severity
-9. If send_to_monitoring_agent returns escalation_needed=True, immediately call
+13. If send_to_monitoring_agent returns escalation_needed=True, immediately call
    escalate_patient with the patient_id, risk_level, and symptom summary
-10. Relay the monitoring agent's response back in warm, simple language
+14. Relay the monitoring agent's response back in warm, simple language
 
 Rules:
 - One question per turn only
@@ -408,7 +417,18 @@ class CoordinatorAgent:
             )
 
             # append model turn to keep conversation going
+            profile = await get_patient_profile(patient_id)
+            full_name = profile.get("name", "there")
+
+            # Use first name only (better UX)
+            first_name = full_name.split(" ")[0] if full_name and full_name != "Patient" else "there"
+
             response_text = response.text or ""
+
+            # Enforce name in response
+            if first_name.lower() not in response_text.lower():
+                response_text = f"Hi {first_name}, {response_text}"
+
             self.history.append(
                 types.Content(
                     role="model",
