@@ -424,7 +424,7 @@ class CoordinatorAgent:
     def __init__(self):
         api_key = os.getenv("GOOGLE_API_KEY")
         self.client = genai.Client(api_key=api_key) if api_key else None
-        self.pending_slots: list = []          # ← ADD THIS
+        self.pending_slots: List[Slot] = []        # ← ADD THIS
         self.selection_state: str = ""   
         self.tools = [
             get_patient_profile,
@@ -508,13 +508,17 @@ class CoordinatorAgent:
             )
 
             # ── Capture slot state if monitoring returned critical ────────
-            for content in response.candidates[0].content.parts:
-                if hasattr(content, "function_response"):
-                    resp = content.function_response.response or {}
+            for part in response.candidates[0].content.parts:
+                func_resp = getattr(part, "function_response", None)
+
+                if func_resp and getattr(func_resp, "response", None):
+                    resp = func_resp.response or {}
+
                     if resp.get("status") == "critical_scheduling_needed":
                         self.pending_slots = resp.get("slots", [])
                         self.selection_state = resp.get("selection_state", "")
                         break
+                   
             # ─────────────────────────────────────────────────────────────
 
             profile = await get_patient_profile(patient_id)
