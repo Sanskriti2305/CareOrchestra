@@ -243,32 +243,6 @@ gcloud run deploy care-orchestra \
   --set-env-vars GCP_PROJECT_ID=PROJECT_ID
 ```
 
-See `infra/scripts/deploy.sh` for detailed deployment script.
-
-## Next Steps
-
-### Phase 1 (Current)
-- ✅ Project structure and starter files
-- ✅ Agent framework scaffolding
-- 🔲 Basic ADK integration
-- 🔲 Mock data workflows
-
-### Phase 2
-- [ ] Complete agent implementations
-- [ ] Real BigQuery integration
-- [ ] MCP Toolbox integration
-- [ ] Unit and integration tests
-
-### Phase 3
-- [ ] FastAPI wrapper for REST API
-- [ ] Streamlit frontend
-- [ ] Production deployment
-
-### Phase 4
-- [ ] ML-based risk prediction
-- [ ] EHR system integration
-- [ ] Multi-tenant support
-
 ## Technology Stack
 
 - **Language**: Python 3.9+
