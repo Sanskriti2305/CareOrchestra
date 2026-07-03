@@ -63,16 +63,6 @@ apps/adk_app/
 
 See [Architecture Documentation](docs/architecture.md) for details.
 
-## Planned Integrations
-
-- ✅ BigQuery (structured database)
-- ✅ Gmail (alert delivery)
-- ✅ Google Calendar (appointment scheduling)
-- 🔲 MCP Toolbox for BigQuery (future)
-- 🔲 FastAPI wrapper 
-- 🔲 Streamlit frontend (future)
-- 🔲 Advanced ML models for risk prediction (future)
-
 ## Getting Started
 
 ### Prerequisites
