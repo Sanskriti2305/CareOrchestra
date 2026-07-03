@@ -242,24 +242,6 @@ gcloud run deploy care-orchestra \
 - **Testing**: pytest
 - **Type Checking**: mypy
 
-## Contributing
-
-This is a starter project template. As you build out functionality:
-
-1. Keep agents focused and single-responsibility
-2. Use clear naming for services and tools
-3. Add comprehensive docstrings
-4. Write tests alongside code
-5. Document workflows in `docs/`
-
-## License
-
-[Add license info]
-
-## Contact
-
-[Add contact info]
-
 ---
 
 **Ready to get started?** See [Demo Script](docs/demo_script.md) for a hands-on walkthrough.
