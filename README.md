@@ -2,6 +2,8 @@
 
 **A multi-agent AI system for chronic care coordination using Google ADK**
 
+Project Timeline: April 2026 – May 2026
+
 ## Problem Statement
 
 Patients with chronic conditions face critical gaps in care:
